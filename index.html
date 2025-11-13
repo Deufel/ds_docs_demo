@@ -1,0 +1,560 @@
+<!doctype html>
+<html style="scroll-behavior: smooth;">
+  <head>
+    <script type="module" src="https://cdn.jsdelivr.net/gh/starfederation/datastar@1.0.0-RC.6/bundles/datastar.js"></script>
+    <style>
+      * {
+        scrollbar-gutter: stable;
+      }
+      body{
+        font-family:sans-serif;
+        max-width:1400px;
+        margin:1rem auto;
+        padding:0 1rem;
+        line-height:1.5;
+      }
+      .header{
+        display:flex;
+        justify-content:space-between;
+        align-items:flex-start;
+        margin-bottom:1rem;
+        gap:2rem;
+      }
+      .title-section{
+        flex:1;
+      }
+      .search-section{
+        position:fixed;
+        top:1rem;
+        right:1rem;
+        z-index:100;
+        display:flex;
+        gap:0.5rem;
+        align-items:center;
+        background:white;
+        padding:0.75rem;
+        border-radius:0.5rem;
+        box-shadow:0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+      }
+      .content-wrapper{
+        display:grid;
+        grid-template-columns:250px 1fr;
+        gap:2rem;
+      }
+      .main-content{
+        min-width:0;
+      }
+      .sidenav{
+        position:sticky;
+        top:1rem;
+        height:fit-content;
+        max-height:calc(100vh - 2rem);
+        overflow-y:auto;
+        padding:1rem;
+        background:#f9fafb;
+        border-radius:0.375rem;
+        border:1px solid #e5e7eb;
+      }
+      .sidenav h3{
+        margin:0 0 0.75rem 0;
+        font-size:0.875rem;
+        font-weight:600;
+        color:#6b7280;
+        text-transform:uppercase;
+      }
+      .nav-item{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        padding:0.5rem;
+        margin-bottom:0.25rem;
+        border-radius:0.25rem;
+        font-size:0.875rem;
+        color:#374151;
+        text-decoration:none;
+        transition:all 0.15s;
+      }
+      .nav-item:hover{
+        background:#e5e7eb;
+      }
+      .nav-item.disabled{
+        opacity:0.4;
+        cursor:not-allowed;
+        pointer-events:none;
+      }
+      .nav-badge{
+        background:#3b82f6;
+        color:white;
+        padding:0.125rem 0.5rem;
+        border-radius:9999px;
+        font-size:0.7rem;
+        font-weight:600;
+        min-width:1.5rem;
+        text-align:center;
+      }
+      .attribute-name{font-weight:bold;font-size:1.25rem;margin-bottom:0.25rem;color:#1e40af}
+      .description{margin:0.5rem 0;color:#374151;font-size:0.9rem}
+      .attributes{display:flex;flex-direction:column;gap:1rem}
+      .attribute{
+        position:relative;
+        padding:1rem;
+        border:1px solid #e5e7eb;
+        border-radius:0.375rem;
+        background:#fff;
+        scroll-margin-top:3rem;
+        transition: order 0.5s cubic-bezier(0.4, 0, 0.2, 1), 
+                    transform 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                    opacity 0.3s ease-in-out;
+      }
+      .attribute:hover{box-shadow:0 2px 4px rgba(0,0,0,0.1)}
+      input{padding:0.625rem;border:1px solid #d1d5db;border-radius:0.375rem;min-width:250px;font-size:0.95rem}
+      input:focus{outline:2px solid #3b82f6;outline-offset:0}
+      .debug{
+        margin-bottom:1rem;
+        padding:0.75rem;
+        background:#f3f4f6;
+        font-family:monospace;
+        font-size:0.8rem;
+        border-radius:0.375rem;
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:1rem;
+      }
+      .debug-info{
+        flex:1;
+      }
+      .match-badge{
+        position:absolute;
+        top:1rem;
+        right:1rem;
+        background:#3b82f6;
+        color:white;
+        padding:0.25rem 0.75rem;
+        border-radius:9999px;
+        font-size:0.8rem;
+        font-weight:600;
+      }
+      button{
+        padding:0.625rem 1.25rem;
+        background:#3b82f6;
+        color:white;
+        border:none;
+        border-radius:0.375rem;
+        cursor:pointer;
+        font-size:0.95rem;
+        transition:background 0.15s;
+        white-space:nowrap;
+      }
+      button:hover{background:#2563eb}
+      button:active{background:#1d4ed8}
+      button.clear-btn{
+        background:#dc2626;
+      }
+      button.clear-btn:hover{
+        background:#b91c1c;
+      }
+      code{background:#f3f4f6;color:#1f2937;padding:0.125rem 0.375rem;border-radius:0.25rem;font-size:0.85rem;font-family:monospace}
+      h1{color:#111827;margin:0 0 0.25rem 0;font-size:1.75rem}
+      .subtitle{color:#6b7280;margin:0;font-size:0.9rem}
+      pre{background:#1f2937;color:#f9fafb;padding:0.75rem;border-radius:0.375rem;overflow-x:auto;font-size:0.8rem;margin:0.375rem 0}
+      pre code{background:transparent;color:#f9fafb;padding:0}
+    </style>
+  </head>
+  <body data-signals="{ search: '', tags: [] }">
+    
+    <!-- Fixed Floating Search Bar -->
+    <form class="search-section" data-on:submit__prevent="$search.trim() ? ($tags = [...$tags, $search.trim()], $search = '') : null">
+      <input 
+        type="text" 
+        placeholder="Live Search ...(enter to add tag)" 
+        data-bind:search
+      >
+      <button type="submit">Add Tag</button>
+      <button class="clear-btn" data-on:click="$tags = [], $search = ''" type="button">Clear All</button>
+    </form>
+
+    <!-- Header with Title -->
+    <div class="header">
+      <div class="title-section">
+        <h1>Datastar Attributes Reference</h1>
+        <p class="subtitle">Interactive documentation with live search and relevance-based ordering</p>
+      </div>
+    </div>
+    
+    <!-- Tags/Debug Area with Clear Button -->
+    <div class="debug">
+      <div class="debug-info">
+        Tags: <span data-text="JSON.stringify($tags)"></span><br>
+        Search: <span data-text="$search"></span>
+      </div>
+      <button class="clear-btn" data-on:click="$tags = [], $search = ''" type="button">Clear All</button>
+    </div>
+
+    <!-- Content with Sidenav -->
+    <div class="content-wrapper">
+      <!-- Sidenav -->
+      <aside class="sidenav">
+        <h3>Attributes</h3>
+        
+        <a href="#data-attr" class="nav-item" data-class:disabled="($tags.length > 0 || $search.trim().length > 0) && $matchCountAttr === 0">
+          <span>data-attr</span>
+          <span class="nav-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountAttr"></span>
+        </a>
+        
+        <a href="#data-bind" class="nav-item" data-class:disabled="($tags.length > 0 || $search.trim().length > 0) && $matchCountBind === 0">
+          <span>data-bind</span>
+          <span class="nav-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountBind"></span>
+        </a>
+        
+        <a href="#data-class" class="nav-item" data-class:disabled="($tags.length > 0 || $search.trim().length > 0) && $matchCountClass === 0">
+          <span>data-class</span>
+          <span class="nav-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountClass"></span>
+        </a>
+        
+        <a href="#data-computed" class="nav-item" data-class:disabled="($tags.length > 0 || $search.trim().length > 0) && $matchCountComputed === 0">
+          <span>data-computed</span>
+          <span class="nav-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountComputed"></span>
+        </a>
+        
+        <a href="#data-effect" class="nav-item" data-class:disabled="($tags.length > 0 || $search.trim().length > 0) && $matchCountEffect === 0">
+          <span>data-effect</span>
+          <span class="nav-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountEffect"></span>
+        </a>
+        
+        <a href="#data-show" class="nav-item" data-class:disabled="($tags.length > 0 || $search.trim().length > 0) && $matchCountShow === 0">
+          <span>data-show</span>
+          <span class="nav-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountShow"></span>
+        </a>
+        
+        <a href="#data-signals" class="nav-item" data-class:disabled="($tags.length > 0 || $search.trim().length > 0) && $matchCountSignals === 0">
+          <span>data-signals</span>
+          <span class="nav-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountSignals"></span>
+        </a>
+        
+        <a href="#data-on" class="nav-item" data-class:disabled="($tags.length > 0 || $search.trim().length > 0) && $matchCountOn === 0">
+          <span>data-on</span>
+          <span class="nav-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountOn"></span>
+        </a>
+        
+        <a href="#data-text" class="nav-item" data-class:disabled="($tags.length > 0 || $search.trim().length > 0) && $matchCountText === 0">
+          <span>data-text</span>
+          <span class="nav-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountText"></span>
+        </a>
+        
+        <a href="#data-style" class="nav-item" data-class:disabled="($tags.length > 0 || $search.trim().length > 0) && $matchCountStyle === 0">
+          <span>data-style</span>
+          <span class="nav-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountStyle"></span>
+        </a>
+        
+        <a href="#data-init" class="nav-item" data-class:disabled="($tags.length > 0 || $search.trim().length > 0) && $matchCountInit === 0">
+          <span>data-init</span>
+          <span class="nav-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountInit"></span>
+        </a>
+        
+        <a href="#data-ref" class="nav-item" data-class:disabled="($tags.length > 0 || $search.trim().length > 0) && $matchCountRef === 0">
+          <span>data-ref</span>
+          <span class="nav-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountRef"></span>
+        </a>
+        
+        <a href="#data-indicator" class="nav-item" data-class:disabled="($tags.length > 0 || $search.trim().length > 0) && $matchCountIndicator === 0">
+          <span>data-indicator</span>
+          <span class="nav-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountIndicator"></span>
+        </a>
+        
+        <a href="#data-on-intersect" class="nav-item" data-class:disabled="($tags.length > 0 || $search.trim().length > 0) && $matchCountIntersect === 0">
+          <span>data-on-intersect</span>
+          <span class="nav-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountIntersect"></span>
+        </a>
+      </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="attributes">
+        
+        <!-- data-attr -->
+        <div 
+          id="data-attr"
+          class="attribute" 
+          data-signals="{ searchableAttr: 'data-attr sets value html attribute expression keeps sync multiple attributes key-value pairs', matchCountAttr: 0 }"
+          data-effect="$matchCountAttr = [...$tags, $search.trim()].filter(tag => tag.length > 0 && $searchableAttr.toLowerCase().includes(tag.toLowerCase())).length"
+          data-show="($tags.length === 0 && $search.trim().length === 0) || $matchCountAttr > 0"
+          data-style:order="($tags.length === 0 && $search.trim().length === 0) ? 0 : -$matchCountAttr"
+        >
+          <span class="match-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountAttr"></span>
+          <div class="attribute-name">
+            <code>data-attr</code>
+          </div>
+          <div class="description">
+            Sets the value of any HTML attribute to an expression, and keeps it in sync.
+            <pre><code>&lt;div data-attr:title="$foo"&gt;&lt;/div&gt;</code></pre>
+            Can also set multiple attributes using key-value pairs:
+            <pre><code>&lt;div data-attr="{title: $foo, disabled: $bar}"&gt;&lt;/div&gt;</code></pre>
+          </div>
+        </div>
+
+        <!-- data-bind -->
+        <div 
+          id="data-bind"
+          class="attribute" 
+          data-signals="{ searchableBind: 'data-bind signal two-way data binding element value input select textarea change event listener form', matchCountBind: 0 }"
+          data-effect="$matchCountBind = [...$tags, $search.trim()].filter(tag => tag.length > 0 && $searchableBind.toLowerCase().includes(tag.toLowerCase())).length"
+          data-show="($tags.length === 0 && $search.trim().length === 0) || $matchCountBind > 0"
+          data-style:order="($tags.length === 0 && $search.trim().length === 0) ? 0 : -$matchCountBind"
+        >
+          <span class="match-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountBind"></span>
+          <div class="attribute-name">
+            <code>data-bind</code>
+          </div>
+          <div class="description">
+            Creates a signal and sets up two-way data binding between it and an element's value. The value of the element is updated when the signal changes, and the signal value is updated when the value of the element changes.
+            <pre><code>&lt;input data-bind:foo /&gt;</code></pre>
+            Works with input, select, textarea elements, and web components. Event listeners are added for change and input events.
+          </div>
+        </div>
+
+        <!-- data-class -->
+        <div 
+          id="data-class"
+          class="attribute" 
+          data-signals="{ searchableClass: 'data-class adds removes class element expression conditional styling css classes toggle', matchCountClass: 0 }"
+          data-effect="$matchCountClass = [...$tags, $search.trim()].filter(tag => tag.length > 0 && $searchableClass.toLowerCase().includes(tag.toLowerCase())).length"
+          data-show="($tags.length === 0 && $search.trim().length === 0) || $matchCountClass > 0"
+          data-style:order="($tags.length === 0 && $search.trim().length === 0) ? 0 : -$matchCountClass"
+        >
+          <span class="match-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountClass"></span>
+          <div class="attribute-name">
+            <code>data-class</code>
+          </div>
+          <div class="description">
+            Adds or removes a class to or from an element based on an expression.
+            <pre><code>&lt;div data-class:hidden="$foo"&gt;&lt;/div&gt;</code></pre>
+            Can also manage multiple classes:
+            <pre><code>&lt;div data-class="{hidden: $foo, 'font-bold': $bar}"&gt;&lt;/div&gt;</code></pre>
+          </div>
+        </div>
+
+        <!-- data-computed -->
+        <div 
+          id="data-computed"
+          class="attribute" 
+          data-signals="{ searchableComputed: 'data-computed signal computed expression read-only automatically updated memoizing reactive value', matchCountComputed: 0 }"
+          data-effect="$matchCountComputed = [...$tags, $search.trim()].filter(tag => tag.length > 0 && $searchableComputed.toLowerCase().includes(tag.toLowerCase())).length"
+          data-show="($tags.length === 0 && $search.trim().length === 0) || $matchCountComputed > 0"
+          data-style:order="($tags.length === 0 && $search.trim().length === 0) ? 0 : -$matchCountComputed"
+        >
+          <span class="match-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountComputed"></span>
+          <div class="attribute-name">
+            <code>data-computed</code>
+          </div>
+          <div class="description">
+            Creates a signal that is computed based on an expression. The computed signal is read-only, and its value is automatically updated when any signals in the expression are updated.
+            <pre><code>&lt;div data-computed:foo="$bar + $baz"&gt;&lt;/div&gt;</code></pre>
+            Useful for memoizing expressions containing other signals.
+          </div>
+        </div>
+
+        <!-- data-effect -->
+        <div 
+          id="data-effect"
+          class="attribute" 
+          data-signals="{ searchableEffect: 'data-effect executes expression page load signals change side effects updating backend manipulating dom reactive', matchCountEffect: 0 }"
+          data-effect="$matchCountEffect = [...$tags, $search.trim()].filter(tag => tag.length > 0 && $searchableEffect.toLowerCase().includes(tag.toLowerCase())).length"
+          data-show="($tags.length === 0 && $search.trim().length === 0) || $matchCountEffect > 0"
+          data-style:order="($tags.length === 0 && $search.trim().length === 0) ? 0 : -$matchCountEffect"
+        >
+          <span class="match-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountEffect"></span>
+          <div class="attribute-name">
+            <code>data-effect</code>
+          </div>
+          <div class="description">
+            Executes an expression on page load and whenever any signals in the expression change. Useful for performing side effects, such as updating other signals, making requests to the backend, or manipulating the DOM.
+            <pre><code>&lt;div data-effect="$foo = $bar + $baz"&gt;&lt;/div&gt;</code></pre>
+          </div>
+        </div>
+
+        <!-- data-show -->
+        <div 
+          id="data-show"
+          class="attribute" 
+          data-signals="{ searchableShow: 'data-show shows hides element expression true false visibility display conditional rendering', matchCountShow: 0 }"
+          data-effect="$matchCountShow = [...$tags, $search.trim()].filter(tag => tag.length > 0 && $searchableShow.toLowerCase().includes(tag.toLowerCase())).length"
+          data-show="($tags.length === 0 && $search.trim().length === 0) || $matchCountShow > 0"
+          data-style:order="($tags.length === 0 && $search.trim().length === 0) ? 0 : -$matchCountShow"
+        >
+          <span class="match-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountShow"></span>
+          <div class="attribute-name">
+            <code>data-show</code>
+          </div>
+          <div class="description">
+            Shows or hides an element based on whether an expression evaluates to true or false.
+            <pre><code>&lt;div data-show="$foo"&gt;&lt;/div&gt;</code></pre>
+            To prevent flickering before Datastar processes the DOM, add a display: none style initially.
+          </div>
+        </div>
+
+        <!-- data-signals -->
+        <div 
+          id="data-signals"
+          class="attribute" 
+          data-signals="{ searchableSignals: 'data-signals patches adds updates removes signals nested dot-notation key-value pairs state management', matchCountSignals: 0 }"
+          data-effect="$matchCountSignals = [...$tags, $search.trim()].filter(tag => tag.length > 0 && $searchableSignals.toLowerCase().includes(tag.toLowerCase())).length"
+          data-show="($tags.length === 0 && $search.trim().length === 0) || $matchCountSignals > 0"
+          data-style:order="($tags.length === 0 && $search.trim().length === 0) ? 0 : -$matchCountSignals"
+        >
+          <span class="match-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountSignals"></span>
+          <div class="attribute-name">
+            <code>data-signals</code>
+          </div>
+          <div class="description">
+            Patches (adds, updates or removes) one or more signals into the existing signals. Values defined later in the DOM tree override those defined earlier.
+            <pre><code>&lt;div data-signals:foo="1"&gt;&lt;/div&gt;</code></pre>
+            Can also use key-value pairs:
+            <pre><code>&lt;div data-signals="{foo: {bar: 1, baz: 2}}"&gt;&lt;/div&gt;</code></pre>
+          </div>
+        </div>
+
+        <!-- data-on -->
+        <div 
+          id="data-on"
+          class="attribute" 
+          data-signals="{ searchableOn: 'data-on event listener element expression triggered click submit custom events evt variable modifiers debounce throttle', matchCountOn: 0 }"
+          data-effect="$matchCountOn = [...$tags, $search.trim()].filter(tag => tag.length > 0 && $searchableOn.toLowerCase().includes(tag.toLowerCase())).length"
+          data-show="($tags.length === 0 && $search.trim().length === 0) || $matchCountOn > 0"
+          data-style:order="($tags.length === 0 && $search.trim().length === 0) ? 0 : -$matchCountOn"
+        >
+          <span class="match-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountOn"></span>
+          <div class="attribute-name">
+            <code>data-on</code>
+          </div>
+          <div class="description">
+            Attaches an event listener to an element, executing an expression whenever the event is triggered.
+            <pre><code>&lt;button data-on:click="$foo = ''"&gt;Reset&lt;/button&gt;</code></pre>
+            An evt variable representing the event object is available in the expression. Supports modifiers like __debounce, __throttle, __prevent, __stop, and more.
+          </div>
+        </div>
+
+        <!-- data-text -->
+        <div 
+          id="data-text"
+          class="attribute" 
+          data-signals="{ searchableText: 'data-text binds text content element expression innerText reactively updates', matchCountText: 0 }"
+          data-effect="$matchCountText = [...$tags, $search.trim()].filter(tag => tag.length > 0 && $searchableText.toLowerCase().includes(tag.toLowerCase())).length"
+          data-show="($tags.length === 0 && $search.trim().length === 0) || $matchCountText > 0"
+          data-style:order="($tags.length === 0 && $search.trim().length === 0) ? 0 : -$matchCountText"
+        >
+          <span class="match-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountText"></span>
+          <div class="attribute-name">
+            <code>data-text</code>
+          </div>
+          <div class="description">
+            Binds the text content of an element to an expression.
+            <pre><code>&lt;div data-text="$foo"&gt;&lt;/div&gt;</code></pre>
+          </div>
+        </div>
+
+        <!-- data-style -->
+        <div 
+          id="data-style"
+          class="attribute" 
+          data-signals="{ searchableStyle: 'data-style sets inline css styles element expression reactive styling background-color display flexDirection', matchCountStyle: 0 }"
+          data-effect="$matchCountStyle = [...$tags, $search.trim()].filter(tag => tag.length > 0 && $searchableStyle.toLowerCase().includes(tag.toLowerCase())).length"
+          data-show="($tags.length === 0 && $search.trim().length === 0) || $matchCountStyle > 0"
+          data-style:order="($tags.length === 0 && $search.trim().length === 0) ? 0 : -$matchCountStyle"
+        >
+          <span class="match-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountStyle"></span>
+          <div class="attribute-name">
+            <code>data-style</code>
+          </div>
+          <div class="description">
+            Sets the value of inline CSS styles on an element based on an expression, and keeps them in sync.
+            <pre><code>&lt;div data-style:background-color="$usingRed ? 'red' : 'blue'"&gt;&lt;/div&gt;</code></pre>
+            Can set multiple style properties:
+            <pre><code>&lt;div data-style="{display: 'flex', flexDirection: 'column'}"&gt;&lt;/div&gt;</code></pre>
+          </div>
+        </div>
+
+        <!-- data-init -->
+        <div 
+          id="data-init"
+          class="attribute" 
+          data-signals="{ searchableInit: 'data-init runs expression initialized page load patched dom lifecycle modifiers delay viewtransition', matchCountInit: 0 }"
+          data-effect="$matchCountInit = [...$tags, $search.trim()].filter(tag => tag.length > 0 && $searchableInit.toLowerCase().includes(tag.toLowerCase())).length"
+          data-show="($tags.length === 0 && $search.trim().length === 0) || $matchCountInit > 0"
+          data-style:order="($tags.length === 0 && $search.trim().length === 0) ? 0 : -$matchCountInit"
+        >
+          <span class="match-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountInit"></span>
+          <div class="attribute-name">
+            <code>data-init</code>
+          </div>
+          <div class="description">
+            Runs an expression when the attribute is initialized. This can happen on page load, when an element is patched into the DOM, and any time the attribute is modified.
+            <pre><code>&lt;div data-init="$count = 1"&gt;&lt;/div&gt;</code></pre>
+            Supports modifiers like __delay and __viewtransition.
+          </div>
+        </div>
+
+        <!-- data-ref -->
+        <div 
+          id="data-ref"
+          class="attribute" 
+          data-signals="{ searchableRef: 'data-ref creates signal reference element dom manipulation access tagName properties', matchCountRef: 0 }"
+          data-effect="$matchCountRef = [...$tags, $search.trim()].filter(tag => tag.length > 0 && $searchableRef.toLowerCase().includes(tag.toLowerCase())).length"
+          data-show="($tags.length === 0 && $search.trim().length === 0) || $matchCountRef > 0"
+          data-style:order="($tags.length === 0 && $search.trim().length === 0) ? 0 : -$matchCountRef"
+        >
+          <span class="match-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountRef"></span>
+          <div class="attribute-name">
+            <code>data-ref</code>
+          </div>
+          <div class="description">
+            Creates a new signal that is a reference to the element on which the data attribute is placed.
+            <pre><code>&lt;div data-ref:foo&gt;&lt;/div&gt;</code></pre>
+            The signal value can then be used to reference the element and access its properties.
+          </div>
+        </div>
+
+        <!-- data-indicator -->
+        <div 
+          id="data-indicator"
+          class="attribute" 
+          data-signals="{ searchableIndicator: 'data-indicator creates signal fetch request flight loading spinner disabled button async', matchCountIndicator: 0 }"
+          data-effect="$matchCountIndicator = [...$tags, $search.trim()].filter(tag => tag.length > 0 && $searchableIndicator.toLowerCase().includes(tag.toLowerCase())).length"
+          data-show="($tags.length === 0 && $search.trim().length === 0) || $matchCountIndicator > 0"
+          data-style:order="($tags.length === 0 && $search.trim().length === 0) ? 0 : -$matchCountIndicator"
+        >
+          <span class="match-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountIndicator"></span>
+          <div class="attribute-name">
+            <code>data-indicator</code>
+          </div>
+          <div class="description">
+            Creates a signal and sets its value to true while a fetch request is in flight, otherwise false. Useful for showing loading indicators.
+            <pre><code>&lt;button data-on:click="@get('/endpoint')" data-indicator:fetching&gt;&lt;/button&gt;
+&lt;div data-show="$fetching"&gt;Loading...&lt;/div&gt;</code></pre>
+          </div>
+        </div>
+
+        <!-- data-on-intersect -->
+        <div 
+          id="data-on-intersect"
+          class="attribute" 
+          data-signals="{ searchableIntersect: 'data-on-intersect runs expression element intersects viewport visible scroll lazy loading once half full', matchCountIntersect: 0 }"
+          data-effect="$matchCountIntersect = [...$tags, $search.trim()].filter(tag => tag.length > 0 && $searchableIntersect.toLowerCase().includes(tag.toLowerCase())).length"
+          data-show="($tags.length === 0 && $search.trim().length === 0) || $matchCountIntersect > 0"
+          data-style:order="($tags.length === 0 && $search.trim().length === 0) ? 0 : -$matchCountIntersect"
+        >
+          <span class="match-badge" data-show="$tags.length > 0 || $search.trim().length > 0" data-text="$matchCountIntersect"></span>
+          <div class="attribute-name">
+            <code>data-on-intersect</code>
+          </div>
+          <div class="description">
+            Runs an expression when the element intersects with the viewport.
+            <pre><code>&lt;div data-on-intersect="$intersected = true"&gt;&lt;/div&gt;</code></pre>
+            Supports modifiers like __once, __half, __full, __debounce, and __throttle.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </body>
+</html>
